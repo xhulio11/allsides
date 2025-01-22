@@ -159,7 +159,7 @@ class AllSidesNews():
                     # Get the content of the article 
                     artilce_title = article.title
                     article_text = article.text
-                    articles_content.append([artilce_title + '\n' + article_text, key])
+                    articles_content.append([artilce_title + '\n' + article_text, key, url])
                     
                     # Mimic human behavior 
                     time.sleep(2)
