@@ -14,70 +14,74 @@ import time
 class AllSidesNews():
     
 
-    def __init__(self,):
-        pass 
+    def __init__(self, driver): 
+        self.driver = driver
 
-    def create_url(self, code=None, query_parameter=None):
+    
+    def create_url(self, topic=None):
         
         # Set the proper url based on the selection of Main topics (WORLD, BUISNESS, ...) or sections (POLITICS, SPORTS ..)
         try: 
             # Check the topic to be used
-            if code in TOPICS: 
-                url = ALLSIDES_NEWS_URL + '/topics/' + code 
+            if topic in TOPICS: 
+                url = ALLSIDES_NEWS_URL + '/topics/' + topic 
                 return url 
         except:
             print("ERROR: Some variable is not defined properly for the creation of the url")
 
 
-    def get_news_by_topic(self, topic="politics"):
-        # Get News by main provided topics in google news site 
-        url = self.create_url(code=topic, query_parameter=self.query)
-
-
-        """
-        list: news_by_topic
+    def get_news_by_bias(self, topic="politics"):
         
-        This list will contain in every positin a dictionary of reated news 
-        [
-        {"title 1": "https://news.google.com/...", "title 2": "https://news.google.com/..."}, 
-        {"title 3": "https://news.google.com/...", "title 4": "https://news.google.com/..."}, 
-        ...]
+        # Create url based on given topic 
+        base_url = self.create_url(topic=topic) 
         
+        # Get Page content 
+        self.driver.get(base_url) 
+
+        # Wait for the page to fully load 
+        WebDriverWait(self.driver, 1).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
+
+        # Get the page source
+        allsides = self.driver.page_source
+
+        allsides_html = BeautifulSoup(allsides,"html.parser")
+
+        # Get political column names 
+        political_columns = allsides_html.find("div", class_="news-trio")
+
+        # Retrieve left, center, and right divs which contain the ulrs for the source  
+        left = political_columns.find_all("div", class_="news-item left")
+        center = political_columns.find_all("div", class_="news-item center")
+        right = political_columns.find_all("div", class_="news-item right")
+
+        all_urls = {"left":[], "center":[], "right":[]}
+
+        # Loop through each column and extract intermidiate url 
+        for div in left: 
+            a_tag = div.find("a")
+            all_urls["left"].append(a_tag["href"])
+        
+        for div in center: 
+            a_tag = div.find("a")
+            all_urls["center"].append(a_tag["href"])
+        
+        for div in right: 
+            a_tag = div.find("a")
+            all_urls["right"].append(a_tag["href"])
+        
+
+
+        return all_urls
+    
+
+
+    def get_article_url(self, intermidiate_url): 
         """
-        news_by_topic = [None for _ in entries]
-
-        for i, entry in enumerate(entries): 
-
-            # Get main title and the url 
-            title = entry['title']
-            
-            url = entry["links"][0]['href']
-            
-            # Add the first article in the current position
-            news_by_topic[i] = {url:title}
-
-            # Parse the html content to extract the other related news 
-            # Get the key:summary which is html content
-            summary = entry['summary']
-            
-            # Create a BeautifulSoup instant to parse 
-            content = BeautifulSoup(summary, 'html.parser')
-            
-            # Every li tag contains href: link, target: title 
-            a_tags = content.find_all('a')
-            j = 0 
-            for a_tag in a_tags:
-
-                # Get url and title of current article 
-                url = a_tag.get('href')
-                title = a_tag.get_text(strip=True)  # Extracts the text content
-
-                # Add it in the dictionary 
-                news_by_topic[i][url] = title 
-
-        return news_by_topic
-
-
+            This fucntion takes as input: intermidate url 
+            Return the article url and the political bias: {"url":"http:/.....", "bias"="Lean Left"}
+        """
+        
+         
     def read_articles(self, topics, driver, write_json=False, max_topics = 10):
 
         articles_by_topic = []
