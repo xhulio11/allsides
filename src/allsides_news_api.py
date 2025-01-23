@@ -184,18 +184,18 @@ class AllSidesNews():
             return False
 
         # Keyword filtering (check for terms like "terms of use", "cookies", etc.)
-        disallowed_keywords = [
-            "terms of use", "privacy policy", "cookies", 
-            "about us", "contact us", "login", "sign up"
-        ]
-        if any(keyword.lower() in article.text.lower() for keyword in disallowed_keywords):
-            print("2. Disallowed content keywords found")
-            return False
+        # disallowed_keywords = [
+        #     "terms of use", "privacy policy", "cookies", 
+        #     "about us", "contact us", "login", "sign up"
+        # ]
+        # if any(keyword.lower() in article.text.lower() for keyword in disallowed_keywords):
+        #     print("2. Disallowed content keywords found")
+        #     return False
 
-        # Boilerplate or repetitive content check
-        if len(set(article.text.split())) / len(article.text.split()) < 0.5:
-            print("2. High repetition or boilerplate content detected")
-            return False
+        # # Boilerplate or repetitive content check
+        # if len(set(article.text.split())) / len(article.text.split()) < 0.5:
+        #     print("2. High repetition or boilerplate content detected")
+        #     return False
         
         # Paragraph structure
         paragraphs = article.text.split("\n")
