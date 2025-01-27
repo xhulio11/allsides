@@ -3,11 +3,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from newspaper import Article
+import newspaper 
 from bs4 import BeautifulSoup
 from constants import * 
 import json
 import time
 import urllib3
+from datetime import datetime 
 
 class AllSidesNews():
     
@@ -26,6 +28,22 @@ class AllSidesNews():
             print("ERROR: Some variable is not defined properly for the creation of the url")
 
 
+    def normalize_date(self, date_str):
+        # Remove unwanted characters and extra spaces
+        date_str = date_str.strip().replace('\n', '').replace('Posted on AllSides', '').strip()
+        
+        # Replace ordinal suffixes (st, nd, rd, th) with an empty string
+        date_str = date_str.replace('st', '').replace('nd', '').replace('rd', '').replace('th', '')
+        
+        # Parse the date string into a datetime object
+        date_obj = datetime.strptime(date_str, '%B %d, %Y')
+        
+        # Format the datetime object into a normalized date string (YYYY-MM-DD)
+        normalized_date = date_obj.strftime('%Y-%m-%d')
+        
+        return normalized_date
+    
+    
     def get_news_by_bias(self, topic="politics"):
         
         # Create url based on given topic 
@@ -59,24 +77,29 @@ class AllSidesNews():
             time.sleep(0.5)
 
             # url_bias['bias'] == "Lean Left" || "Left"
-            if url_bias['url'] not in all_urls[url_bias["bias"]]:
-                all_urls[url_bias["bias"]].append(url_bias['url'])
+            found = any(url_bias['url'] == item[1] for item in all_urls[url_bias['bias']])
+            if not found:
+                all_urls[url_bias["bias"]].append((url_bias['date'], url_bias['url']))
         
         for div in center: 
             a_tag = div.find("a")
             url_bias = self.get_article_url(intermidiate_url=a_tag['href'])
             time.sleep(0.5)
             # url_bias['bias'] == "Center"
-            if url_bias['url'] not in all_urls[url_bias["bias"]]:
-                all_urls[url_bias["bias"]].append(url_bias['url'])
+            # Check if the string matches any value in position 0
+
+            found = any(url_bias['url'] == item[1] for item in all_urls[url_bias['bias']])
+            if not found:
+                all_urls[url_bias["bias"]].append((url_bias['date'], url_bias['url']))
         
         for div in right: 
             a_tag = div.find("a")
             url_bias = self.get_article_url(intermidiate_url=a_tag['href'])
             time.sleep(0.5)
             # url_bias['bias'] == "Lean Right" || "Right"
-            if url_bias['url'] not in all_urls[url_bias["bias"]]:
-                all_urls[url_bias["bias"]].append(url_bias['url'])
+            found = any(url_bias['url'] == item[1] for item in all_urls[url_bias['bias']])
+            if not found:
+                all_urls[url_bias["bias"]].append((url_bias['date'], url_bias['url']))
         
         return all_urls
     
@@ -96,6 +119,10 @@ class AllSidesNews():
 
         allsides_html = BeautifulSoup(allsides,"html.parser")
 
+        # Get Date 
+        article_date = allsides_html.find('div', class_="article-posted-date")
+        date = article_date.get_text()
+
         # Get bias 
         bias_element = allsides_html.find('span', class_="media-bias-name")
         bias = bias_element.find('a').get_text() 
@@ -104,7 +131,7 @@ class AllSidesNews():
         url_div = allsides_html.find('div', class_="read-more-story")
         url = url_div.find('a')["href"]
 
-        return {"url":url, "bias":bias}
+        return {"date":self.normalize_date(date),"url":url, "bias":bias}
 
 
     def read_articles(self, urls, driver, write_json=False, max_topics = 10, hard_check_article=True):
@@ -116,54 +143,61 @@ class AllSidesNews():
                 
                 for url in value:
 
+                    # try:
+                    #     # Get content using browser 
+                    #     driver.get(url[1]) 
+                        
+                    #     try:                                
+                    #         # Wait for the page to fully load 
+                    #         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))  # Wait for the body tag
+                        
+                    #     except TimeoutError: 
+                    #         print("No Body tag found")
+                    #         continue
+
+                    #     # Add a delay to mimic human behavior
+                    #     time.sleep(2) 
+
+                    #     # Get the page source
+                    #     page_content = driver.page_source
+
+                    #     # Use newspaper3k to parse the article text
+                    #     article = Article('')
+                    #     article.set_html(page_content)
+                    #     article.parse()
+                        
+                    # # Check articles validity 
+                    #     if hard_check_article and not self.hard_check_article(article): 
+                    #         continue 
+                    # except TimeoutException:
+                    #     # Selenium-specific timeout
+                    #     print(f"Selenium TimeoutException for URL: {url}. Skipping...")
+                    #     continue
+
+                    # except urllib3.exceptions.ReadTimeoutError:
+                    #     # Lower-level read timeout from urllib3
+                    #     print(f"urllib3 ReadTimeoutError for URL: {url}. Skipping...")
+                    #     continue
+
+                    # except Exception as e:
+                    #     print(f"An error occurred while loading the page: {e}")
+                    #     json.dump(articles_content, file, ensure_ascii=False, )
+                    #     return 
                     try:
-                        # Get content using browser 
-                        driver.get(url) 
-                        
-                        try:                                
-                            # Wait for the page to fully load 
-                            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))  # Wait for the body tag
-                        
-                        except TimeoutError: 
-                            print("No Body tag found")
-                            continue
+                        article = Article(url=url[1], language='en')
+                        article.download()
+                        article.parse() 
 
-                        # Add a delay to mimic human behavior
-                        time.sleep(2) 
-
-                        # Get the page source
-                        page_content = driver.page_source
-
-                        # Use newspaper3k to parse the article text
-                        article = Article('')
-                        article.set_html(page_content)
-                        article.parse()
-                    # Check articles validity 
-                        if hard_check_article and not self.hard_check_article(article): 
-                            continue 
-                    except TimeoutException:
-                        # Selenium-specific timeout
-                        print(f"Selenium TimeoutException for URL: {url}. Skipping...")
-                        continue
-
-                    except urllib3.exceptions.ReadTimeoutError:
-                        # Lower-level read timeout from urllib3
-                        print(f"urllib3 ReadTimeoutError for URL: {url}. Skipping...")
-                        continue
-
-                    except Exception as e:
-                        print(f"An error occurred while loading the page: {e}")
-                        json.dump(articles_content, file, ensure_ascii=False, )
-                        return 
-
-                    # Get the content of the article 
-                    artilce_title = article.title
-                    article_text = article.text
-                    articles_content.append([artilce_title + '\n' + article_text, key, url])
-                    
+                        # Get the content of the article 
+                        artilce_title = article.title
+                        article_text = article.text
+                        articles_content.append({"date":url[0],"article":artilce_title + '\n' + article_text,"bias":key, "url":url[1]})
+                    except newspaper.article.ArticleException:
+                        print("Article `download()` failed with 403 Client Error: Forbidden for url:", url[1])
+                        continue 
+                    print("Article `download()` PASSED:", url[1])
                     # Mimic human behavior 
-                    time.sleep(2)
-            
+                    # time.sleep(2)
             json.dump(articles_content, file, indent=4)
             
         return articles_content

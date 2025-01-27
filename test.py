@@ -28,14 +28,14 @@ driver = webdriver.Chrome(service=service, options=chrome_options)
 
 all_sides_api = AllSidesNews(driver)
 
-urls = all_sides_api.get_news_by_bias(topic="politics")
+# urls = all_sides_api.get_news_by_bias(topic="politics")
 
-with open("article_urls.json", "w") as file: 
-    json.dump(urls, file, indent=4)
+# with open("article_urls.json", "w") as file: 
+#     json.dump(urls, file, indent=4)
 # with open("article_urls_backup.json", "w") as file: 
 #     json.dump(urls, file, indent=4)
 
-# with open("article_urls.json", "r", encoding="utf-8") as file: 
-#     data = json.load(file)
+with open("article_urls.json", "r", encoding="utf-8") as file: 
+    data = json.load(file)
 
-# articles = all_sides_api.read_articles(data, driver, write_json=True, max_topics = 10)
+articles = all_sides_api.read_articles(data, driver, write_json=True, max_topics = 10)
