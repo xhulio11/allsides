@@ -3,14 +3,15 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from newspaper import Article
-import newspaper 
 from bs4 import BeautifulSoup
 from constants import * 
+from datetime import datetime 
+from colorama import Fore, Style
+import newspaper 
 import json
 import time
 import urllib3
-from datetime import datetime 
-from colorama import Fore, Style
+
 
 class AllSidesNews():
     
@@ -140,8 +141,10 @@ class AllSidesNews():
         failed_articles_urls = []
         counter_passed_articles = 0
         counter_all_articles = 0
+
         with open('articles.json', 'w', encoding='UTF-8') as file: 
             articles_content = []
+
             print("Trying newspaper3k Api ...\n")
             for key, value in urls.items(): 
                 # Getting the number of all articles
@@ -158,7 +161,9 @@ class AllSidesNews():
                         print(f"Article {Fore.RED}FAILED{Style.RESET_ALL}:", url[1])
                         failed_articles_urls.append(url)
                         continue 
+
                     print(f"Article {Fore.GREEN}PASSED{Style.RESET_ALL}:", url[1])
+                    
                     # Get the content of the article 
                     artilce_title = article.title
                     article_text = article.text
@@ -168,9 +173,11 @@ class AllSidesNews():
             print(f"\n{Fore.GREEN}PASSED{Style.RESET_ALL} Articles:{Fore.GREEN}{counter_passed_articles}{Style.RESET_ALL}/{Fore.RED}{counter_all_articles}{Style.RESET_ALL}")
                     
             if force_all_articles:
-                print("\nTrying Selenium and Webroswer ...\n")
                 counter_passed_articles = 0
                 counter_all_articles = len(failed_articles_urls)
+                
+                print("\nTrying Selenium and Webroswer ...\n")
+
                 for url in failed_articles_urls: 
                     
                     #Using the browser for the failed urls with simple aproach 
