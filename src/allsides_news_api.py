@@ -10,6 +10,7 @@ import json
 import time
 import urllib3
 from datetime import datetime 
+from colorama import Fore, Style
 
 class AllSidesNews():
     
@@ -134,115 +135,132 @@ class AllSidesNews():
         return {"date":self.normalize_date(date),"url":url, "bias":bias}
 
 
-    def read_articles(self, urls, driver, write_json=False, max_topics = 10, hard_check_article=True):
+    def read_articles(self, urls, driver, write_json=False, force_all_articles = False, hard_check_article=True):
 
-
+        failed_articles_urls = []
+        counter_passed_articles = 0
+        counter_all_articles = 0
         with open('articles.json', 'w', encoding='UTF-8') as file: 
             articles_content = []
+            print("Trying newspaper3k Api ...\n")
             for key, value in urls.items(): 
-                
+                # Getting the number of all articles
+                counter_all_articles += len(value)
+
                 for url in value:
-
-                    # try:
-                    #     # Get content using browser 
-                    #     driver.get(url[1]) 
-                        
-                    #     try:                                
-                    #         # Wait for the page to fully load 
-                    #         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))  # Wait for the body tag
-                        
-                    #     except TimeoutError: 
-                    #         print("No Body tag found")
-                    #         continue
-
-                    #     # Add a delay to mimic human behavior
-                    #     time.sleep(2) 
-
-                    #     # Get the page source
-                    #     page_content = driver.page_source
-
-                    #     # Use newspaper3k to parse the article text
-                    #     article = Article('')
-                    #     article.set_html(page_content)
-                    #     article.parse()
-                        
-                    # # Check articles validity 
-                    #     if hard_check_article and not self.hard_check_article(article): 
-                    #         continue 
-                    # except TimeoutException:
-                    #     # Selenium-specific timeout
-                    #     print(f"Selenium TimeoutException for URL: {url}. Skipping...")
-                    #     continue
-
-                    # except urllib3.exceptions.ReadTimeoutError:
-                    #     # Lower-level read timeout from urllib3
-                    #     print(f"urllib3 ReadTimeoutError for URL: {url}. Skipping...")
-                    #     continue
-
-                    # except Exception as e:
-                    #     print(f"An error occurred while loading the page: {e}")
-                    #     json.dump(articles_content, file, ensure_ascii=False, )
-                    #     return 
+                    # Simple approach 
                     try:
                         article = Article(url=url[1], language='en')
                         article.download()
                         article.parse() 
 
-                        # Get the content of the article 
-                        artilce_title = article.title
-                        article_text = article.text
-                        articles_content.append({"date":url[0],"article":artilce_title + '\n' + article_text,"bias":key, "url":url[1]})
                     except newspaper.article.ArticleException:
-                        print("Article `download()` failed with 403 Client Error: Forbidden for url:", url[1])
+                        print(f"Article {Fore.RED}FAILED{Style.RESET_ALL}:", url[1])
+                        failed_articles_urls.append(url)
                         continue 
-                    print("Article `download()` PASSED:", url[1])
-                    # Mimic human behavior 
-                    # time.sleep(2)
+                    print(f"Article {Fore.GREEN}PASSED{Style.RESET_ALL}:", url[1])
+                    # Get the content of the article 
+                    artilce_title = article.title
+                    article_text = article.text
+                    articles_content.append({"date":url[0],"article":artilce_title + '\n' + article_text,"bias":key, "url":url[1]})
+                    counter_passed_articles += 1 
+                
+            print(f"\n{Fore.GREEN}PASSED{Style.RESET_ALL} Articles:{Fore.GREEN}{counter_passed_articles}{Style.RESET_ALL}/{Fore.RED}{counter_all_articles}{Style.RESET_ALL}")
+                    
+            if force_all_articles:
+                print("\nTrying Selenium and Webroswer ...\n")
+                counter_passed_articles = 0
+                counter_all_articles = len(failed_articles_urls)
+                for url in failed_articles_urls: 
+                    
+                    #Using the browser for the failed urls with simple aproach 
+                    try:
+                        # Get content using browser 
+                        driver.get(url[1]) 
+                        try:                                
+                            # Wait for the page to fully load 
+                            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))  # Wait for the body tag
+                        
+                        except TimeoutError: 
+                            print(f"{Fore.RED}TimeoutError{Style.RESET_ALL} - No Body tag found:",url[1])
+                            continue
+
+                        # Add a delay to mimic human behavior
+                        time.sleep(2) 
+
+                        # Get the page source
+                        page_content = driver.page_source
+
+                        # Use newspaper3k to parse the article text
+                        article = Article('')
+                        article.set_html(page_content)
+                        article.parse()
+
+                        # Check articles validity 
+                        if hard_check_article:
+                            # Return a tuple (bool, message)
+                            hard_check = self.hard_check_article(article)
+
+                            if not hard_check[0]:
+                                print(f"Article {Fore.RED}FAILED - {hard_check[1]}{Style.RESET_ALL}:{url[1]}")
+                                continue 
+
+                    except TimeoutException:
+                        # Selenium-specific timeout
+                        print(f"{Fore.RED}TimeoutException {Style.RESET_ALL}: {url[1]}")
+                        continue
+
+                    except urllib3.exceptions.ReadTimeoutError:
+                        # Lower-level read timeout from urllib3
+                        print(f"{Fore.RED}ReadTimeoutError{Style.RESET_ALL}: {url[1]}")
+                        continue
+
+                    except Exception as e:
+                        print(f"An error occurred while loading the page: {e}")
+                        # json.dump(articles_content, file, ensure_ascii=False, )
+                        continue 
+
+                    # Get the content of the article 
+                    print(f"Article {Fore.GREEN}PASSED:{Style.RESET_ALL}", url[1])
+                    artilce_title = article.title
+                    article_text = article.text
+                    articles_content.append({"date":url[0],"article":artilce_title + '\n' + article_text,"bias":key, "url":url[1]})
+                    counter_passed_articles += 1
+                    
+                print(f"\n{Fore.GREEN}PASSED{Style.RESET_ALL} Articles:{Fore.GREEN}{counter_passed_articles}{Style.RESET_ALL}/{Fore.RED}{counter_all_articles}{Style.RESET_ALL}")
+
+                    
+
+            # Writing every article collected 
             json.dump(articles_content, file, indent=4)
             
         return articles_content
     
-    def hard_check_article(self, article): 
-        
-        print("1.Checking Articles Validity")
 
+    def hard_check_article(self, article): 
+
+        message = ""
         # Title check
         if not article.title or len(article.title.strip()) < 5:
-            print("2.Missing or invalid title")
-            return False
+            message = "Missing or invalid title"
+            return (False, message)
 
         # Length check
         if len(article.text) < 100:
-            print("2.Content too short")
+            message = "Content too short"
             print(article.text)
-            return False
-
-        # Keyword filtering (check for terms like "terms of use", "cookies", etc.)
-        # disallowed_keywords = [
-        #     "terms of use", "privacy policy", "cookies", 
-        #     "about us", "contact us", "login", "sign up"
-        # ]
-        # if any(keyword.lower() in article.text.lower() for keyword in disallowed_keywords):
-        #     print("2. Disallowed content keywords found")
-        #     return False
-
-        # # Boilerplate or repetitive content check
-        # if len(set(article.text.split())) / len(article.text.split()) < 0.5:
-        #     print("2. High repetition or boilerplate content detected")
-        #     return False
+            return (False, message)
         
         # Paragraph structure
         paragraphs = article.text.split("\n")
         if len([p for p in paragraphs if len(p.split()) > 10]) < 2:
-            print("2.Insufficient paragraph structure")
-            return False
+            message="Insufficient paragraph structure"
+            return (False, message)
 
         # Media-only check
         if article.movies and len(article.text) < 100:
-            print("2.Media-only content")
-            return False
-
-        # If all checks pass
-        print("2.Valid article")
-        return True
+            message="Media-only content"
+            return (False, message)
+        
+        return (True, message)
     
